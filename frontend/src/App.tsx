@@ -1,26 +1,36 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import Navbar from './components/Navbar'
-import Dashboard from './pages/teacher/Dashboard'
-import CreateSession from './pages/teacher/CreateSession'
-import LiveSession from './pages/teacher/LiveSession'
-import './App.css'
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import AppShell from "./components/AppShell";
+import ProtectedRoute from "./components/ProtectedRoute";
+import LandingPage from "./pages/LandingPage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import StudentDashboard from "./pages/student/StudentDashboard";
+import TeacherDashboard from "./pages/teacher/TeacherDashboard";
+import "./App.css";
 
 function App() {
   return (
     <BrowserRouter>
-      <div className="app">
-        <Navbar />
-        <main className="main-content">
-          <Routes>
-            <Route path="/" element={<Navigate to="/teacher/dashboard" replace />} />
-            <Route path="/teacher/dashboard" element={<Dashboard />} />
-            <Route path="/teacher/session/create" element={<CreateSession />} />
-            <Route path="/teacher/session/:id" element={<LiveSession />} />
-          </Routes>
-        </main>
-      </div>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+
+        <Route element={<ProtectedRoute />}>
+          <Route element={<AppShell />}>
+            <Route element={<ProtectedRoute role="teacher" />}>
+              <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
+            </Route>
+            <Route element={<ProtectedRoute role="student" />}>
+              <Route path="/student/dashboard" element={<StudentDashboard />} />
+            </Route>
+          </Route>
+        </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </BrowserRouter>
-  )
+  );
 }
 
-export default App
+export default App;
