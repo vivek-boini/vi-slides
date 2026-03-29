@@ -85,6 +85,15 @@ cd ../backend
 npm install
 ```
 
+4. Configure environment files
+```bash
+cd ..
+copy backend\.env.example backend\.env
+copy frontend\.env.example frontend\.env
+```
+
+Update `backend/.env` with your MongoDB Atlas connection string and JWT secret.
+
 ### Running the Application
 
 **Frontend** (runs on http://localhost:5173)
@@ -96,8 +105,16 @@ npm run dev
 **Backend** (runs on http://localhost:3000)
 ```bash
 cd backend
-npm start
+npm run dev
 ```
+
+## Auth + Role Routes
+
+- `POST /api/auth/register` - register teacher or student account
+- `POST /api/auth/login` - login and receive JWT
+- `GET /api/auth/me` - fetch current user from JWT
+- `GET /api/dashboard/teacher` - teacher-only dashboard payload
+- `GET /api/dashboard/student` - student-only dashboard payload
 
 ## Contributing
 
