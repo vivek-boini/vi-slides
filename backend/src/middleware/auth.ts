@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import { User } from "../models/User";
-import { verifyToken } from "../utils/jwt";
+import { verifyToken, JwtPayload } from "../utils/jwt";
 
 // AUTH MIDDLEWARE
-export const requireAuth = async (req: any, res: Response, next: NextFunction) => {
+export const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -13,7 +13,7 @@ export const requireAuth = async (req: any, res: Response, next: NextFunction) =
 
     const token = authHeader.split(" ")[1];
 
-    const decoded: any = verifyToken(token);
+    const decoded: JwtPayload = verifyToken(token);
 
     const user = await User.findById(decoded.sub);
 
@@ -23,7 +23,7 @@ export const requireAuth = async (req: any, res: Response, next: NextFunction) =
 
     // attach user to request
     req.user = {
-      id: user._id,
+      id: user._id.toString(),
       name: user.name,
       email: user.email,
       role: user.role
@@ -37,7 +37,7 @@ export const requireAuth = async (req: any, res: Response, next: NextFunction) =
 
 // ROLE MIDDLEWARE
 export const requireRole = (...roles: string[]) => {
-  return (req: any, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ message: "Unauthorized" });
     }

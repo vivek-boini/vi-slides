@@ -86,11 +86,18 @@ npm install
 ```
 
 4. Configure environment files
-```bash
-cd ..
-copy backend\.env.example backend\.env
-copy frontend\.env.example frontend\.env
-```
+
+   **macOS / Linux:**
+   ```bash
+   cp backend/.env.example backend/.env
+   cp frontend/.env.example frontend/.env
+   ```
+
+   **Windows:**
+   ```bash
+   copy backend\.env.example backend\.env
+   copy frontend\.env.example frontend\.env
+   ```
 
 Update `backend/.env` with your MongoDB Atlas connection string and JWT secret.
 
