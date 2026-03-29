@@ -1,14 +1,23 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import morgan from "morgan";
 import env from "./config/env";
 import authRouter from "./routes/auth.routes";
 import dashboardRouter from "./routes/dashboard.routes";
 
+const corsOptions: cors.CorsOptions = {
+  origin: env.FRONTEND_URL,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+};
+
 const app = express();
 
 // middlewares
-app.use(cors());
+app.use(cors(corsOptions));
+app.use(helmet());
 app.use(express.json());
 app.use(morgan("dev"));
 

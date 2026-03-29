@@ -29,13 +29,19 @@ export const register = async (req: Request, res: Response) => {
     res.status(201).json({
       token,
       user: {
-        id: user._id,
+        id: user._id.toString(),
         name: user.name,
         email: user.email,
         role: user.role
       }
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error && error.name === "ValidationError") {
+      return res.status(400).json({ message: error.message });
+    }
+    if (error && error.code === 11000) {
+      return res.status(409).json({ message: "User already exists" });
+    }
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -65,7 +71,7 @@ export const login = async (req: Request, res: Response) => {
     res.status(200).json({
       token,
       user: {
-        id: user._id,
+        id: user._id.toString(),
         name: user.name,
         email: user.email,
         role: user.role
