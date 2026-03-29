@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { loginRequest, meRequest, registerRequest } from "../lib/api";
 import type { AuthUser, UserRole } from "../types/auth";
 
@@ -18,10 +18,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
     const [user, setUser] = useState<AuthUser | null>(null);
     const [loading, setLoading] = useState(true);
+    const hydratedTokenRef = useRef<string | null>(null);
 
     useEffect(() => {
         async function hydrateUser() {
             if (!token) {
+                hydratedTokenRef.current = null;
+                setLoading(false);
+                return;
+            }
+
+            if (user && hydratedTokenRef.current !== token) {
+                hydratedTokenRef.current = token;
                 setLoading(false);
                 return;
             }
@@ -29,17 +37,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             try {
                 const currentUser = await meRequest(token);
                 setUser(currentUser);
+                hydratedTokenRef.current = token;
             } catch {
                 localStorage.removeItem(TOKEN_KEY);
                 setToken(null);
                 setUser(null);
+                hydratedTokenRef.current = null;
             } finally {
                 setLoading(false);
             }
         }
 
         void hydrateUser();
-    }, [token]);
+    }, [token, user]);
 
     const login = useCallback(async (email: string, password: string) => {
         const response = await loginRequest({ email, password });

@@ -14,7 +14,7 @@ export const register = async (req: Request, res: Response) => {
 
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
+      return res.status(409).json({ message: "User already exists" });
     }
 
     const user = await User.create({
@@ -77,7 +77,7 @@ export const login = async (req: Request, res: Response) => {
 };
 
 // GET CURRENT USER
-export const me = (req: any, res: Response) => {
+export const me = (req: Request, res: Response) => {
   if (!req.user) {
     return res.status(401).json({ message: "Unauthorized" });
   }
