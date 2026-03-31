@@ -48,6 +48,7 @@ function App() {
           <Route element={<ProtectedRoute role="student" />}>
             <Route path="/student/dashboard" element={<StudentDashboard />} />
             <Route path="/student/session" element={<StudentSession />} />
+            <Route path="/student/session/:sessionCode" element={<StudentSession />} />
             <Route path="/student/assignments" element={<StudentAssignments />} />
             <Route path="/student/assignments/group" element={<StudentGroupAssignments />} />
             <Route path="/student/assignments/detail" element={<StudentAssignmentDetail />} />

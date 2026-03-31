@@ -4,9 +4,8 @@ import Card from '../../components/Card'
 import Button from '../../components/Button'
 import Navbar from '../../components/Navbar'
 import { useAuth } from '../../context/AuthContext'
+import { createSessionRequest } from '../../lib/api'
 import './CreateSession.css'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api'
 
 function CreateSession() {
   const navigate = useNavigate()
@@ -18,36 +17,27 @@ function CreateSession() {
 
   const handleCreate = async () => {
     if (!title.trim()) return
+    if (!token) {
+      setError('You must be logged in to create a session')
+      return
+    }
 
     setIsLoading(true)
     setError('')
 
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      }
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`
-      }
-
-      const response = await fetch(`${API_BASE_URL}/session/create`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
+      const response = await createSessionRequest(
+        {
           title: title.trim(),
-          description: description.trim(),
-        }),
-      })
+          description: description.trim() || undefined,
+        },
+        token
+      )
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create session')
-      }
-
-      // Navigate to the session dashboard with session data
-      navigate(`/teacher/session/${data.session.id}`, {
-        state: { session: data.session, isNew: true }
+      // Navigate to the live session using the session code
+      const sessionCode = response.data.code
+      navigate(`/teacher/session/${sessionCode}`, {
+        state: { session: response.data, isNew: true }
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')

@@ -3,20 +3,13 @@ import { useEffect, useState } from 'react'
 import Button from '../../components/Button'
 import Navbar from '../../components/Navbar'
 import { useAuth } from '../../context/AuthContext'
+import { getSessionRequest } from '../../lib/api'
+import type { SessionData } from '../../lib/api'
 import './LiveSession.css'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api'
-
-// Types
-interface Session {
-  id: string
-  code: string
-  title: string
-  description: string
-  teacherId: string
-  createdAt: string
-  status: string
-  studentsJoined: number
+// Types - extend SessionData for local use
+interface Session extends SessionData {
+  studentsJoined?: number
 }
 
 type ActiveTab = 'questions' | 'actions' | 'session'
@@ -43,13 +36,14 @@ function LiveSession() {
   const { token } = useAuth()
   
   // Get session from navigation state or fetch from API
+  const stateSession = (location.state as { session?: SessionData })?.session
   const [session, setSession] = useState<Session | null>(
-    (location.state as { session?: Session })?.session || null
+    stateSession ? { ...stateSession, studentsJoined: 0 } : null
   )
   const [isNew, setIsNew] = useState(
     (location.state as { isNew?: boolean })?.isNew || false
   )
-  const [loading, setLoading] = useState(!session)
+  const [loading, setLoading] = useState(!stateSession)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
@@ -60,10 +54,10 @@ function LiveSession() {
 
   // Fetch session data if not passed via state
   useEffect(() => {
-    if (!session && id) {
+    if (!session && id && token) {
       fetchSession()
     }
-  }, [id])
+  }, [id, token])
 
   // Clear the "new session" banner after a few seconds
   useEffect(() => {
@@ -74,20 +68,11 @@ function LiveSession() {
   }, [isNew])
 
   async function fetchSession() {
+    if (!id || !token) return
+    
     try {
-      const headers: Record<string, string> = {}
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`
-      }
-      
-      const response = await fetch(`${API_BASE_URL}/session/${id}`, { headers })
-      const data = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch session')
-      }
-      
-      setSession(data.session)
+      const response = await getSessionRequest(id, token)
+      setSession({ ...response.data, studentsJoined: 0 })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
