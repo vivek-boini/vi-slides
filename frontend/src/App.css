@@ -248,6 +248,25 @@
   font-size: 0.875rem;
 }
 
+.form-success {
+  color: #065f46;
+  font-weight: 500;
+  background: #ecfdf5;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid #a7f3d0;
+  font-size: 0.875rem;
+}
+
+.text-link-btn {
+  border: none;
+  background: transparent;
+  color: var(--color-orange);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
 /* ===== Buttons ===== */
 .solid-btn,
 .ghost-btn {

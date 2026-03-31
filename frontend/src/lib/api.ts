@@ -1,6 +1,9 @@
 import type { AuthResponse, AuthUser, DashboardResponse, UserRole } from "../types/auth";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? "http://localhost:3000/api";
+const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL ??
+    import.meta.env.VITE_API_URL ??
+    (import.meta.env.DEV ? "http://localhost:5001/api" : "/api");
 
 interface ApiRequestOptions extends RequestInit {
     token?: string | null;
@@ -21,7 +24,8 @@ async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Pro
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-        throw new Error(payload.message ?? "Request failed");
+        const validationMessage = Array.isArray(payload.errors) ? payload.errors[0]?.msg : undefined;
+        throw new Error(payload.message ?? validationMessage ?? "Request failed");
     }
 
     return payload as T;
@@ -41,6 +45,20 @@ export function registerRequest(input: {
 
 export function loginRequest(input: { email: string; password: string }): Promise<AuthResponse> {
     return apiRequest<AuthResponse>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify(input)
+    });
+}
+
+export function forgotPasswordCheckEmailRequest(input: { email: string }): Promise<{ success: boolean; message: string }> {
+    return apiRequest<{ success: boolean; message: string }>("/auth/forgot-password/check-email", {
+        method: "POST",
+        body: JSON.stringify(input)
+    });
+}
+
+export function forgotPasswordResetRequest(input: { email: string; newPassword: string }): Promise<{ success: boolean; message: string }> {
+    return apiRequest<{ success: boolean; message: string }>("/auth/forgot-password/reset", {
         method: "POST",
         body: JSON.stringify(input)
     });
