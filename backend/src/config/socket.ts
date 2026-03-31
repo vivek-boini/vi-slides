@@ -220,6 +220,18 @@ export const initSocket = (server: HttpServer) => {
             // Broadcast the result to everyone in the room
             io.to(sessionCode).emit('spotlight_result', { winner, spinDuration: 3000 });
         });
+
+        // Teacher Answer - broadcast answer to all students in session
+        socket.on('teacher-send-answer', ({ sessionCode, questionId, answer }) => {
+            console.log(`📝 Teacher answered question ${questionId} in session ${sessionCode}`);
+            
+            // Broadcast answer to all users in the session room
+            io.to(sessionCode).emit('new-answer', {
+                questionId,
+                answer,
+                timestamp: Date.now()
+            });
+        });
     });
 
     return io;

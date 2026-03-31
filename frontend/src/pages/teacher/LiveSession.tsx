@@ -111,10 +111,20 @@ function LiveSession() {
       }
     }
 
+    // Listen for new answers (from other sources or broadcast)
+    const handleNewAnswer = (data: { questionId: string; answer: string; timestamp: number }) => {
+      setQuestions(prev => prev.map(q => 
+        q._id === data.questionId 
+          ? { ...q, teacherAnswer: data.answer } 
+          : q
+      ))
+    }
+
     socket.on("new_question", handleNewQuestion)
     socket.on("update_question", handleUpdateQuestion)
     socket.on("delete_question", handleDeleteQuestion)
     socket.on("user_joined", handleUserJoined)
+    socket.on("new-answer", handleNewAnswer)
 
     // Cleanup on unmount
     return () => {
@@ -122,6 +132,7 @@ function LiveSession() {
       socket.off("update_question", handleUpdateQuestion)
       socket.off("delete_question", handleDeleteQuestion)
       socket.off("user_joined", handleUserJoined)
+      socket.off("new-answer", handleNewAnswer)
       socket.emit("leave_session", sessionCode)
       disconnectSocket()
       socketConnected.current = false
@@ -191,6 +202,24 @@ function LiveSession() {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1)
     }
+  }
+
+  function handleSendAnswer() {
+    if (!responseText.trim() || !currentQuestion) return
+    
+    const socket = connectSocket()
+    const sessionCode = session?.code || id
+    
+    // Emit answer to all students in the session
+    socket.emit("teacher-send-answer", {
+      sessionCode,
+      questionId: currentQuestion._id,
+      answer: responseText.trim()
+    })
+    
+    // Clear input and close response box
+    setResponseText('')
+    setShowResponseBox(false)
   }
 
   const currentQuestion = questions[currentQuestionIndex]
@@ -432,6 +461,14 @@ function LiveSession() {
                   </button>
                 </div>
 
+                {/* Display Teacher Answer if exists */}
+                {currentQuestion?.teacherAnswer && (
+                  <div className="teacher-answer-display">
+                    <div className="answer-label">Your Answer:</div>
+                    <div className="answer-text">{currentQuestion.teacherAnswer}</div>
+                  </div>
+                )}
+
                 {/* Response Box */}
                 {showResponseBox && (
                   <div className="response-box">
@@ -450,9 +487,10 @@ function LiveSession() {
                       </button>
                       <button 
                         className="response-send"
-                        onClick={() => { setShowResponseBox(false); setResponseText(''); }}
+                        onClick={handleSendAnswer}
+                        disabled={!responseText.trim()}
                       >
-                        Send
+                        Send Answer
                       </button>
                     </div>
                   </div>

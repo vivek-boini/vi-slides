@@ -70,15 +70,26 @@ const Session: React.FC = () => {
       setQuestions(prev => prev.filter(q => q._id !== questionId));
     };
 
+    // Listen for new answers from teacher
+    const handleNewAnswer = (data: { questionId: string; answer: string; timestamp: number }) => {
+      setQuestions(prev => prev.map(q => 
+        q._id === data.questionId 
+          ? { ...q, teacherAnswer: data.answer } 
+          : q
+      ));
+    };
+
     socket.on("new_question", handleNewQuestion);
     socket.on("update_question", handleUpdateQuestion);
     socket.on("delete_question", handleDeleteQuestion);
+    socket.on("new-answer", handleNewAnswer);
 
     // Cleanup on unmount
     return () => {
       socket.off("new_question", handleNewQuestion);
       socket.off("update_question", handleUpdateQuestion);
       socket.off("delete_question", handleDeleteQuestion);
+      socket.off("new-answer", handleNewAnswer);
       socket.emit("leave_session", sessionCode);
       disconnectSocket();
       socketConnected.current = false;
@@ -236,6 +247,32 @@ const Session: React.FC = () => {
             ? `${questions.length} question${questions.length !== 1 ? "s" : ""} in this session`
             : "No questions yet. Be the first to ask!"}
         </div>
+
+        {/* Questions List with Answers */}
+        {questions.length > 0 && (
+          <div className="student-questions-list">
+            {questions.map((question) => (
+              <div key={question._id} className="student-question-item vi-card">
+                <div className="question-header">
+                  <span className="question-author">
+                    {question.user?.name || 'Anonymous'}
+                  </span>
+                  <span className="question-time">
+                    {new Date(question.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                <p className="question-content">{question.content}</p>
+                
+                {question.teacherAnswer && (
+                  <div className="teacher-answer">
+                    <div className="answer-label">Teacher's Answer:</div>
+                    <p className="answer-content">{question.teacherAnswer}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

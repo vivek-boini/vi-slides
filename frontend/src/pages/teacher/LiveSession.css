@@ -582,6 +582,36 @@
   box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3);
 }
 
+.response-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Teacher Answer Display */
+.teacher-answer-display {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.1), rgba(139, 195, 74, 0.1));
+  border-left: 4px solid #4caf50;
+  border-radius: var(--radius-md);
+}
+
+.answer-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #4caf50;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
+.answer-text {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
 .question-dots {
   display: flex;
   justify-content: center;

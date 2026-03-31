@@ -405,6 +405,68 @@
   font-size: 0.875rem;
 }
 
+/* Questions List with Answers */
+.student-questions-list {
+  max-width: 900px;
+  margin: var(--spacing-xl) auto;
+  padding: 0 var(--spacing-lg);
+}
+
+.student-question-item {
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-lg);
+}
+
+.question-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.question-author {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-teal);
+}
+
+.question-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.question-content {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.teacher-answer {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.08), rgba(139, 195, 74, 0.08));
+  border-left: 3px solid #4caf50;
+  border-radius: var(--radius-sm);
+}
+
+.teacher-answer .answer-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #4caf50;
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+
+.teacher-answer .answer-content {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
   .student-dashboard .dashboard-content {
