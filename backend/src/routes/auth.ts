@@ -1,6 +1,15 @@
 import express from 'express';
 import { body } from 'express-validator';
-import { register, login, getMe, updateDetails, googleLogin, getLeaderboard } from '../controllers/authController';
+import {
+    register,
+    login,
+    getMe,
+    updateDetails,
+    googleLogin,
+    getLeaderboard,
+    forgotPasswordCheckEmail,
+    forgotPasswordReset
+} from '../controllers/authController';
 import { protect } from '../middleware/auth';
 
 const router = express.Router();
@@ -22,8 +31,8 @@ router.post(
             .isLength({ min: 6 })
             .withMessage('Password must be at least 6 characters'),
         body('role')
-            .isIn(['Teacher', 'Student'])
-            .withMessage('Role must be either Teacher or Student')
+            .isIn(['Teacher', 'Student', 'teacher', 'student'])
+            .withMessage('Role must be either teacher or student')
     ],
     register
 );
@@ -38,6 +47,25 @@ router.post(
         body('password').notEmpty().withMessage('Password is required')
     ],
     login
+);
+
+router.post(
+    '/forgot-password/check-email',
+    [
+        body('email').isEmail().withMessage('Please provide a valid email')
+    ],
+    forgotPasswordCheckEmail
+);
+
+router.post(
+    '/forgot-password/reset',
+    [
+        body('email').isEmail().withMessage('Please provide a valid email'),
+        body('newPassword')
+            .isLength({ min: 6 })
+            .withMessage('Password must be at least 6 characters')
+    ],
+    forgotPasswordReset
 );
 
 // @route   POST /api/auth/google

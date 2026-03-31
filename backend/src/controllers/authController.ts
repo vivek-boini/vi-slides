@@ -25,6 +25,12 @@ const generateToken = (id: string): string => {
     });
 };
 
+const toDbRole = (role: string): 'Teacher' | 'Student' =>
+    role.toLowerCase() === 'teacher' ? 'Teacher' : 'Student';
+
+const toClientRole = (role: string): 'teacher' | 'student' =>
+    role.toLowerCase() === 'teacher' ? 'teacher' : 'student';
+
 // @desc    Register user
 // @route   POST /api/auth/register
 // @access  Public
@@ -41,9 +47,11 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         }
 
         const { name, email, password, role } = req.body;
+        const normalizedEmail = String(email).toLowerCase();
+        const normalizedRole = toDbRole(String(role));
 
         // Check if user already exists
-        const existingUser = await User.findOne({ email });
+        const existingUser = await User.findOne({ email: normalizedEmail });
         if (existingUser) {
             res.status(400).json({
                 success: false,
@@ -55,9 +63,9 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         // Create user
         const user = await User.create({
             name,
-            email,
+            email: normalizedEmail,
             password,
-            role
+            role: normalizedRole
         });
 
         // Generate token
@@ -70,7 +78,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
                 id: user._id,
                 name: user.name,
                 email: user.email,
-                role: user.role
+                role: toClientRole(user.role)
             }
         });
     } catch (error) {
@@ -98,9 +106,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         }
 
         const { email, password } = req.body;
+        const normalizedEmail = String(email).toLowerCase();
 
         // Check if user exists (include password field)
-        const user = await User.findOne({ email }).select('+password');
+        const user = await User.findOne({ email: normalizedEmail }).select('+password');
         if (!user) {
             res.status(401).json({
                 success: false,
@@ -129,7 +138,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
                 id: user._id,
                 name: user.name,
                 email: user.email,
-                role: user.role
+                role: toClientRole(user.role)
             }
         });
     } catch (error) {
@@ -137,6 +146,81 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         res.status(500).json({
             success: false,
             message: 'Server error during login'
+        });
+    }
+};
+
+export const forgotPasswordCheckEmail = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            res.status(400).json({
+                success: false,
+                errors: errors.array()
+            });
+            return;
+        }
+
+        const { email } = req.body;
+        const normalizedEmail = String(email).toLowerCase();
+
+        const user = await User.findOne({ email: normalizedEmail });
+        if (!user) {
+            res.status(404).json({
+                success: false,
+                message: 'No account found for this email'
+            });
+            return;
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Email verified'
+        });
+    } catch (error) {
+        console.error('ForgotPasswordCheckEmail error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error while checking email'
+        });
+    }
+};
+
+export const forgotPasswordReset = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            res.status(400).json({
+                success: false,
+                errors: errors.array()
+            });
+            return;
+        }
+
+        const { email, newPassword } = req.body;
+        const normalizedEmail = String(email).toLowerCase();
+
+        const user = await User.findOne({ email: normalizedEmail }).select('+password');
+        if (!user) {
+            res.status(404).json({
+                success: false,
+                message: 'No account found for this email'
+            });
+            return;
+        }
+
+        user.password = newPassword;
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Password updated successfully'
+        });
+    } catch (error) {
+        console.error('ForgotPasswordReset error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error while resetting password'
         });
     }
 };
@@ -160,7 +244,7 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
                 id: req.user._id,
                 name: req.user.name,
                 email: req.user.email,
-                role: req.user.role
+                role: toClientRole(req.user.role)
             }
         });
     } catch (error) {
@@ -219,7 +303,7 @@ export const updateDetails = async (req: Request, res: Response): Promise<void> 
                 id: user._id,
                 name: user.name,
                 email: user.email,
-                role: user.role
+                role: toClientRole(user.role)
             }
         });
     } catch (error) {
@@ -296,7 +380,7 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
                 id: user._id,
                 name: user.name,
                 email: user.email,
-                role: user.role,
+                role: toClientRole(user.role),
                 avatar: user.avatar
             }
         });
