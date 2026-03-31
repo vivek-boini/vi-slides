@@ -12,7 +12,7 @@ import assignmentIcon from '../../assets/assignment.png'
 import groupsIcon from '../../assets/groups.png'
 import joinIcon from '../../assets/join.png'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5001/api'
 
 interface Session {
   id: string
@@ -49,7 +49,7 @@ function Dashboard() {
         headers['Authorization'] = `Bearer ${token}`
       }
 
-      const response = await fetch(`${API_BASE_URL}/session`, { headers })
+      const response = await fetch(`${API_BASE_URL}/sessions`, { headers })
       const data = await response.json()
       
       if (response.ok && data.success) {

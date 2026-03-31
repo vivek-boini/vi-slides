@@ -337,6 +337,44 @@ export const leaveSession = async (req: Request, res: Response): Promise<void> =
     }
 };
 
+// @desc    Get all sessions for a teacher
+// @route   GET /api/sessions/teacher/list
+// @access  Private (Teacher only)
+export const getTeacherSessions = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const userId = req.user?._id;
+
+        const sessions = await Session.find({
+            teacher: userId,
+            isQuerySession: { $ne: true } // Exclude query sessions
+        })
+            .sort({ createdAt: -1 })
+            .select('title description code status createdAt students');
+
+        // Transform to include student count
+        const sessionsWithCount = sessions.map(session => ({
+            id: session._id,
+            code: session.code,
+            title: session.title,
+            description: session.description || '',
+            createdAt: session.createdAt,
+            status: session.status,
+            studentsJoined: session.students?.length || 0
+        }));
+
+        res.status(200).json({
+            success: true,
+            sessions: sessionsWithCount
+        });
+    } catch (error) {
+        console.error('Get teacher sessions error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error fetching teacher sessions'
+        });
+    }
+};
+
 // @desc    Get active session for user
 // @route   GET /api/sessions/current/active
 // @access  Private

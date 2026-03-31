@@ -1,10 +1,12 @@
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Button from '../../components/Button'
 import Navbar from '../../components/Navbar'
 import { useAuth } from '../../context/AuthContext'
 import { getSessionRequest } from '../../lib/api'
 import type { SessionData } from '../../lib/api'
+import { connectSocket, disconnectSocket } from '../../lib/socket'
+import type { Question } from '../../lib/socket'
 import './LiveSession.css'
 
 // Types - extend SessionData for local use
@@ -14,26 +16,17 @@ interface Session extends SessionData {
 
 type ActiveTab = 'questions' | 'actions' | 'session'
 
-// Sample questions for demo
-const sampleQuestions = [
-  { id: 1, text: "Can you explain the difference between let and const?", student: "Student 1" },
-  { id: 2, text: "What is the purpose of useEffect hook?", student: "Student 2" },
-  { id: 3, text: "How does React handle re-rendering?", student: "Student 3" },
-]
-
-// Sample participants for demo
-const sampleParticipants = [
-  { id: 1, name: "Alice Johnson" },
-  { id: 2, name: "Bob Smith" },
-  { id: 3, name: "Charlie Brown" },
-  { id: 4, name: "Diana Ross" },
-]
+// Participant type for real-time tracking
+interface Participant {
+  id: string
+  name: string
+}
 
 function LiveSession() {
   const { id } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   
   // Get session from navigation state or fetch from API
   const stateSession = (location.state as { session?: SessionData })?.session
@@ -51,6 +44,12 @@ function LiveSession() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [showResponseBox, setShowResponseBox] = useState(false)
   const [responseText, setResponseText] = useState('')
+  
+  // Real-time questions state
+  const [questions, setQuestions] = useState<Question[]>([])
+  const [participants, setParticipants] = useState<Participant[]>([])
+  
+  const socketConnected = useRef(false)
 
   // Fetch session data if not passed via state
   useEffect(() => {
@@ -67,6 +66,75 @@ function LiveSession() {
     }
   }, [isNew])
 
+  // Socket connection for real-time updates
+  useEffect(() => {
+    const sessionCode = session?.code || id
+    if (!sessionCode) return
+
+    const socket = connectSocket()
+    
+    // Join the session room as teacher
+    socket.emit("join_session", { 
+      sessionCode, 
+      user: user ? { _id: user.id, name: user.name, email: user.email } : null 
+    })
+    socketConnected.current = true
+
+    // Listen for new questions
+    const handleNewQuestion = (question: Question) => {
+      setQuestions(prev => {
+        // Avoid duplicates
+        if (prev.some(q => q._id === question._id)) return prev
+        return [question, ...prev]
+      })
+    }
+
+    // Listen for question updates
+    const handleUpdateQuestion = (question: Question) => {
+      setQuestions(prev => prev.map(q => q._id === question._id ? question : q))
+    }
+
+    // Listen for question deletions
+    const handleDeleteQuestion = (questionId: string) => {
+      setQuestions(prev => prev.filter(q => q._id !== questionId))
+    }
+
+    // Listen for users joining
+    const handleUserJoined = (userData: { _id: string; name: string }) => {
+      if (userData && userData._id) {
+        setParticipants(prev => {
+          if (prev.some(p => p.id === userData._id)) return prev
+          return [...prev, { id: userData._id, name: userData.name }]
+        })
+        // Update student count
+        setSession(prev => prev ? { ...prev, studentsJoined: (prev.studentsJoined || 0) + 1 } : prev)
+      }
+    }
+
+    socket.on("new_question", handleNewQuestion)
+    socket.on("update_question", handleUpdateQuestion)
+    socket.on("delete_question", handleDeleteQuestion)
+    socket.on("user_joined", handleUserJoined)
+
+    // Cleanup on unmount
+    return () => {
+      socket.off("new_question", handleNewQuestion)
+      socket.off("update_question", handleUpdateQuestion)
+      socket.off("delete_question", handleDeleteQuestion)
+      socket.off("user_joined", handleUserJoined)
+      socket.emit("leave_session", sessionCode)
+      disconnectSocket()
+      socketConnected.current = false
+    }
+  }, [session?.code, id, user])
+
+  // Fetch existing questions when session loads
+  useEffect(() => {
+    if (session?._id && token) {
+      fetchQuestions()
+    }
+  }, [session?._id, token])
+
   async function fetchSession() {
     if (!id || !token) return
     
@@ -77,6 +145,27 @@ function LiveSession() {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function fetchQuestions() {
+    if (!session?._id || !token) return
+    
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5001/api"}/questions/session/${session._id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      )
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && Array.isArray(data.data)) {
+          setQuestions(data.data)
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch questions:", err)
     }
   }
 
@@ -99,12 +188,12 @@ function LiveSession() {
   }
 
   function goToNextQuestion() {
-    if (currentQuestionIndex < sampleQuestions.length - 1) {
+    if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1)
     }
   }
 
-  const currentQuestion = sampleQuestions[currentQuestionIndex]
+  const currentQuestion = questions[currentQuestionIndex]
 
   // Loading state
   if (loading) {
@@ -183,20 +272,26 @@ function LiveSession() {
               <div className="sidebar-section">
                 <div className="section-header">
                   <span>All Questions</span>
-                  <span className="badge">{sampleQuestions.length}</span>
+                  <span className="badge">{questions.length}</span>
                 </div>
-                <ul className="question-list">
-                  {sampleQuestions.map((q, index) => (
-                    <li 
-                      key={q.id} 
-                      className={`question-item ${index === currentQuestionIndex ? 'active' : ''}`}
-                      onClick={() => setCurrentQuestionIndex(index)}
-                    >
-                      <span className="q-number">Q{index + 1}</span>
-                      <span className="q-preview">{q.text.substring(0, 30)}...</span>
-                    </li>
-                  ))}
-                </ul>
+                {questions.length === 0 ? (
+                  <p style={{ padding: '1rem', color: '#888', fontSize: '0.9rem' }}>
+                    No questions yet. Waiting for students...
+                  </p>
+                ) : (
+                  <ul className="question-list">
+                    {questions.map((q, index) => (
+                      <li 
+                        key={q._id} 
+                        className={`question-item ${index === currentQuestionIndex ? 'active' : ''}`}
+                        onClick={() => setCurrentQuestionIndex(index)}
+                      >
+                        <span className="q-number">Q{index + 1}</span>
+                        <span className="q-preview">{q.content.substring(0, 30)}...</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
 
@@ -240,19 +335,25 @@ function LiveSession() {
                   </div>
                   <div className="detail-item">
                     <span className="detail-label">Participants</span>
-                    <span className="detail-value highlight">{sampleParticipants.length}</span>
+                    <span className="detail-value highlight">{participants.length}</span>
                   </div>
                 </div>
                 
                 <div className="section-header" style={{ marginTop: '20px' }}>
                   <span>Joined Students</span>
-                  <span className="badge">{sampleParticipants.length}</span>
+                  <span className="badge">{participants.length}</span>
                 </div>
-                <ul className="participants-list">
-                  {sampleParticipants.map(p => (
-                    <li key={p.id}>{p.name}</li>
-                  ))}
-                </ul>
+                {participants.length === 0 ? (
+                  <p style={{ padding: '1rem', color: '#888', fontSize: '0.9rem' }}>
+                    No students yet...
+                  </p>
+                ) : (
+                  <ul className="participants-list">
+                    {participants.map(p => (
+                      <li key={p.id}>{p.name}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
           </div>
@@ -274,7 +375,7 @@ function LiveSession() {
                 </button>
               </div>
               <div className="student-count">
-                <span className="count-value">{session.studentsJoined}</span>
+                <span className="count-value">{participants.length}</span>
                 <span className="count-label">Students</span>
               </div>
               <Button variant="secondary" onClick={handleEndSession}>
@@ -286,75 +387,88 @@ function LiveSession() {
           {/* Canvas Area */}
           <div className="editor-canvas">
             {/* Question Card - Main Focus */}
-            <div className="question-card">
-              <span className="question-counter">
-                Question {currentQuestionIndex + 1} of {sampleQuestions.length}
-              </span>
-              
-              <div className="question-main">
-                <button className="nav-btn" onClick={goToPrevQuestion}>‹</button>
-                <div className="question-content">
-                  <p className="question-text">{currentQuestion.text}</p>
-                  <span className="question-author">— {currentQuestion.student}</span>
+            {questions.length === 0 ? (
+              <div className="question-card">
+                <div className="question-content" style={{ textAlign: 'center', padding: '3rem' }}>
+                  <p className="question-text" style={{ color: '#888' }}>
+                    Waiting for student questions...
+                  </p>
+                  <p style={{ fontSize: '0.9rem', color: '#aaa', marginTop: '1rem' }}>
+                    Share the code <strong>{session.code}</strong> with your students
+                  </p>
                 </div>
-                <button className="nav-btn" onClick={goToNextQuestion}>›</button>
               </div>
-
-              {/* Question Actions */}
-              <div className="question-actions">
-                <button className="q-action-btn ai-btn">
-                  <span className="q-action-icon">✦</span>
-                  <span>Answer with AI</span>
-                </button>
-                <button 
-                  className={`q-action-btn respond-btn ${showResponseBox ? 'active' : ''}`}
-                  onClick={() => setShowResponseBox(!showResponseBox)}
-                >
-                  <span className="q-action-icon">↩</span>
-                  <span>Respond</span>
-                </button>
-                <button className="q-action-btn done-btn">
-                  <span className="q-action-icon">✓</span>
-                  <span>Mark as Done</span>
-                </button>
-              </div>
-
-              {/* Response Box */}
-              {showResponseBox && (
-                <div className="response-box">
-                  <textarea
-                    className="response-input"
-                    placeholder="Type your response..."
-                    value={responseText}
-                    onChange={(e) => setResponseText(e.target.value)}
-                  />
-                  <div className="response-actions">
-                    <button 
-                      className="response-cancel"
-                      onClick={() => { setShowResponseBox(false); setResponseText(''); }}
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      className="response-send"
-                      onClick={() => { setShowResponseBox(false); setResponseText(''); }}
-                    >
-                      Send
-                    </button>
+            ) : (
+              <div className="question-card">
+                <span className="question-counter">
+                  Question {currentQuestionIndex + 1} of {questions.length}
+                </span>
+                
+                <div className="question-main">
+                  <button className="nav-btn" onClick={goToPrevQuestion} disabled={currentQuestionIndex === 0}>‹</button>
+                  <div className="question-content">
+                    <p className="question-text">{currentQuestion?.content}</p>
+                    <span className="question-author">— {currentQuestion?.user?.name || 'Anonymous'}</span>
                   </div>
+                  <button className="nav-btn" onClick={goToNextQuestion} disabled={currentQuestionIndex >= questions.length - 1}>›</button>
                 </div>
-              )}
 
-              <div className="question-dots">
-                {sampleQuestions.map((_, index) => (
+                {/* Question Actions */}
+                <div className="question-actions">
+                  <button className="q-action-btn ai-btn">
+                    <span className="q-action-icon">✦</span>
+                    <span>Answer with AI</span>
+                  </button>
                   <button 
-                    key={index} 
-                    className={`dot ${index === currentQuestionIndex ? 'active' : ''}`}
-                    onClick={() => setCurrentQuestionIndex(index)}
-                  />
-                ))}
+                    className={`q-action-btn respond-btn ${showResponseBox ? 'active' : ''}`}
+                    onClick={() => setShowResponseBox(!showResponseBox)}
+                  >
+                    <span className="q-action-icon">↩</span>
+                    <span>Respond</span>
+                  </button>
+                  <button className="q-action-btn done-btn">
+                    <span className="q-action-icon">✓</span>
+                    <span>Mark as Done</span>
+                  </button>
+                </div>
+
+                {/* Response Box */}
+                {showResponseBox && (
+                  <div className="response-box">
+                    <textarea
+                      className="response-input"
+                      placeholder="Type your response..."
+                      value={responseText}
+                      onChange={(e) => setResponseText(e.target.value)}
+                    />
+                    <div className="response-actions">
+                      <button 
+                        className="response-cancel"
+                        onClick={() => { setShowResponseBox(false); setResponseText(''); }}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        className="response-send"
+                        onClick={() => { setShowResponseBox(false); setResponseText(''); }}
+                      >
+                        Send
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="question-dots">
+                  {questions.map((_, index) => (
+                    <button 
+                      key={index} 
+                      className={`dot ${index === currentQuestionIndex ? 'active' : ''}`}
+                      onClick={() => setCurrentQuestionIndex(index)}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </main>
       </div>

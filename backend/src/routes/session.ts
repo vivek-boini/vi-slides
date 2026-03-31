@@ -9,6 +9,7 @@ import {
     pauseSession,
     leaveSession,
     getStudentSessions,
+    getTeacherSessions,
     getOrCreateQuerySession,
     updateQueryUrl
 } from '../controllers/sessionController';
@@ -26,6 +27,14 @@ router.get('/current/active', getActiveSession);
 // @route   GET /api/sessions/student/history
 // @desc    Get student session history
 router.get('/student/history', getStudentSessions);
+
+// @route   GET /api/sessions/teacher/list
+// @desc    Get all sessions for a teacher
+router.get('/teacher/list', authorize('Teacher'), getTeacherSessions);
+
+// @route   GET /api/sessions (alias for teacher list)
+// @desc    List sessions for current teacher
+router.get('/', authorize('Teacher'), getTeacherSessions);
 
 // @route   POST /api/sessions
 // @desc    Create a session (Teacher)
