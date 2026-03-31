@@ -6,6 +6,7 @@ import "./Student.css";
 const AssignmentDetail: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  // Assignment data is passed from the previous route via location state.
   const data = location.state;
 
   const [text, setText] = useState("");

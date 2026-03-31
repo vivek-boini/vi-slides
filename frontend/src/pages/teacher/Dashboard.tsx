@@ -51,7 +51,7 @@ function Dashboard() {
 
       const response = await fetch(`${API_BASE_URL}/session`, { headers })
       const data = await response.json()
-      
+
       if (response.ok && data.success) {
         setSessions(data.sessions)
       } else {
@@ -77,6 +77,7 @@ function Dashboard() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
+  // Prefer live dashboard metrics; fall back to local session data if metrics fail.
   const sessionsConducted = dashboardData?.metrics?.sessionsConducted ?? sessions.length
   const totalAssignments = dashboardData?.metrics?.totalAssignments ?? 0
   const totalStudents = dashboardData?.metrics?.totalStudents ?? sessions.reduce((sum, s) => sum + s.studentsJoined, 0)
@@ -85,11 +86,11 @@ function Dashboard() {
   return (
     <div className="dashboard-page">
       <Navbar variant="teacher" />
-      
+
       <div className="dashboard-content">
-        <WelcomeCard 
-          name={user?.name || 'Teacher'} 
-          subtitle={dashboardData?.message ?? 'Manage your sessions and engage with students!'} 
+        <WelcomeCard
+          name={user?.name || 'Teacher'}
+          subtitle={dashboardData?.message ?? 'Manage your sessions and engage with students!'}
         />
 
         {/* Stats Grid */}
