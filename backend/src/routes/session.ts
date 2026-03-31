@@ -4,6 +4,7 @@ import {
     createSession,
     joinSession,
     getSessionDetails,
+    getSessionSummary,
     endSession,
     getActiveSession,
     pauseSession,
@@ -64,6 +65,10 @@ router.post(
     ],
     joinSession
 );
+
+// @route   GET /api/sessions/:code/summary
+// @desc    Get session summary with questions and answers
+router.get('/:code/summary', getSessionSummary);
 
 // @route   GET /api/sessions/:code
 // @desc    Get session details

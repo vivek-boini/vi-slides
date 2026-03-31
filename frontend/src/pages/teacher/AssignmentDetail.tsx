@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getAssignmentByIdRequest } from '../../lib/api';
-import type { Assignment } from '../../lib/api';
+import { getAssignmentByIdRequest, type AssignmentItem } from '../../lib/api';
 import Navbar from '../../components/Navbar';
 import './Dashboard.css';
 
@@ -10,7 +9,7 @@ function AssignmentDetail() {
   const { id } = useParams<{ id: string }>();
   const { token } = useAuth();
   const navigate = useNavigate();
-  const [assignment, setAssignment] = useState<Assignment | null>(null);
+  const [assignment, setAssignment] = useState<AssignmentItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -35,16 +34,10 @@ function AssignmentDetail() {
 
     console.log(`[AssignmentDetail] Fetching assignment ID: ${assignmentId}`);
     try {
-      const response = await getAssignmentByIdRequest(assignmentId, token);
-      console.log('[AssignmentDetail] API response:', response);
-      
-      if (response.success && response.data) {
-        setAssignment(response.data);
-        console.log('[AssignmentDetail] Loaded assignment:', response.data);
-      } else {
-        console.warn('[AssignmentDetail] Unexpected response structure:', response);
-        setError('Failed to load assignment');
-      }
+      const data = await getAssignmentByIdRequest(assignmentId, token);
+      console.log('[AssignmentDetail] API response:', data);
+      setAssignment(data);
+      console.log('[AssignmentDetail] Loaded assignment:', data);
     } catch (err) {
       console.error('[AssignmentDetail] Error fetching assignment:', err);
       setError(err instanceof Error ? err.message : 'Failed to load assignment');
@@ -151,13 +144,13 @@ function AssignmentDetail() {
                 )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                  {assignment.dueDate && (
+                  {assignment.deadline && (
                     <div>
                       <h4 style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
                         Due Date
                       </h4>
                       <p style={{ fontSize: '1rem', fontWeight: '600', margin: 0 }}>
-                        {new Date(assignment.dueDate).toLocaleDateString('en-US', {
+                        {new Date(assignment.deadline).toLocaleDateString('en-US', {
                           weekday: 'short',
                           year: 'numeric',
                           month: 'short',

@@ -71,6 +71,86 @@ export function dashboardRequest(role: UserRole, token: string): Promise<Dashboa
     return apiRequest<DashboardResponse>(`/dashboard/${role}`, { token });
 }
 
+// Session types and API functions
+export interface SessionData {
+    _id: string;
+    code: string;
+    title: string;
+    description?: string;
+    teacher: string;
+    status: "active" | "ended";
+    createdAt: string;
+    updatedAt?: string;
+}
+
+interface SessionResponse {
+    success: boolean;
+    data: SessionData;
+}
+
+interface CreateSessionResponse {
+    success: boolean;
+    data: SessionData;
+}
+
+export async function getSessionRequest(codeOrId: string, token: string): Promise<SessionData> {
+    const response = await apiRequest<SessionResponse>(`/sessions/${codeOrId}`, { token });
+    return response.data;
+}
+
+export async function createSessionRequest(
+    input: { title: string; description?: string },
+    token: string
+): Promise<SessionData> {
+    const response = await apiRequest<CreateSessionResponse>("/sessions", {
+        method: "POST",
+        token,
+        body: JSON.stringify(input)
+    });
+    return response.data;
+}
+
+export async function joinSessionRequest(code: string, token: string): Promise<SessionData> {
+    const response = await apiRequest<SessionResponse>("/sessions/join", {
+        method: "POST",
+        token,
+        body: JSON.stringify({ code })
+    });
+    return response.data;
+}
+
+// Session Summary types and API
+export interface SessionSummaryQuestion {
+    _id: string;
+    text: string;
+    answer: string | null;
+    studentName: string;
+    createdAt: string;
+}
+
+export interface SessionSummary {
+    sessionCode: string;
+    title: string;
+    description?: string;
+    status: string;
+    totalStudents: number;
+    totalQuestions: number;
+    questions: SessionSummaryQuestion[];
+    moodSummary?: string;
+    createdAt: string;
+    endedAt?: string;
+}
+
+interface SessionSummaryResponse {
+    success: boolean;
+    data: SessionSummary;
+}
+
+export async function getSessionSummaryRequest(code: string, token: string): Promise<SessionSummary> {
+    const response = await apiRequest<SessionSummaryResponse>(`/sessions/${code}/summary`, { token });
+    return response.data;
+}
+
 export interface AssignmentTeacher {
     _id: string;
     name: string;

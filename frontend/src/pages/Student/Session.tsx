@@ -38,6 +38,9 @@ const Session: React.FC = () => {
   // Pulse check state
   const [showPulseCheck, setShowPulseCheck] = useState(false);
   
+  // Session ended state
+  const [sessionEnded, setSessionEnded] = useState(false);
+  
   const socketConnected = useRef(false);
 
   // Set page title
@@ -114,6 +117,16 @@ const Session: React.FC = () => {
       setShowPulseCheck(true);
     };
 
+    // Listen for session ended
+    const handleSessionEnded = () => {
+      console.log('[Student] Session ended by teacher');
+      setSessionEnded(true);
+      // Redirect to dashboard after 3 seconds
+      setTimeout(() => {
+        navigate('/student/dashboard');
+      }, 3000);
+    };
+
     socket.on("new_question", handleNewQuestion);
     socket.on("update_question", handleUpdateQuestion);
     socket.on("delete_question", handleDeleteQuestion);
@@ -121,6 +134,7 @@ const Session: React.FC = () => {
     socket.on("poll:new", handleNewPoll);
     socket.on("poll:results", handlePollResults);
     socket.on("pulse:check", handlePulseCheck);
+    socket.on("session:ended", handleSessionEnded);
 
     // Cleanup on unmount
     return () => {
@@ -131,11 +145,12 @@ const Session: React.FC = () => {
       socket.off("poll:new", handleNewPoll);
       socket.off("poll:results", handlePollResults);
       socket.off("pulse:check", handlePulseCheck);
+      socket.off("session:ended", handleSessionEnded);
       socket.emit("leave_session", sessionCode);
       disconnectSocket();
       socketConnected.current = false;
     };
-  }, [sessionCode, user]);
+  }, [sessionCode, user, navigate]);
 
   async function fetchSession() {
     if (!sessionCode || !token) return;
@@ -144,8 +159,8 @@ const Session: React.FC = () => {
     setError("");
     
     try {
-      const response = await getSessionRequest(sessionCode, token);
-      setSession(response.data);
+      const sessionData = await getSessionRequest(sessionCode, token);
+      setSession(sessionData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load session");
     } finally {
@@ -439,6 +454,29 @@ const Session: React.FC = () => {
               style={{ width: '100%', fontSize: '1.1rem', padding: '1rem' }}
             >
               ✓ I'm Here!
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Session Ended Modal */}
+      {sessionEnded && (
+        <div className="modal-overlay">
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>👋</div>
+            <h2>Session Ended</h2>
+            <p style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>
+              The teacher has ended this session.
+            </p>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+              Redirecting to dashboard in a few seconds...
+            </p>
+            <button
+              className="vi-btn vi-btn-primary"
+              onClick={() => navigate('/student/dashboard')}
+              style={{ width: '100%', marginTop: '1.5rem' }}
+            >
+              Go to Dashboard Now
             </button>
           </div>
         </div>

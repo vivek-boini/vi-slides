@@ -31,7 +31,7 @@ function CreateSession() {
     setError('')
 
     try {
-      const response = await createSessionRequest(
+      const session = await createSessionRequest(
         {
           title: title.trim(),
           description: description.trim() || undefined,
@@ -40,9 +40,9 @@ function CreateSession() {
       )
 
       // Navigate to the live session using the session code
-      const sessionCode = response.data.code
+      const sessionCode = session.code
       navigate(`/teacher/session/${sessionCode}`, {
-        state: { session: response.data, isNew: true }
+        state: { session, isNew: true }
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')

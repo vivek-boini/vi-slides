@@ -22,6 +22,21 @@ interface Participant {
   name: string
 }
 
+// Types for poll and pulse results
+interface PollResult {
+  pollId: string
+  question: string
+  results: { option: string; count: number; percentage: number }[]
+  totalVotes: number
+}
+
+interface PulseResult {
+  total: number
+  responded: number
+  absent: number
+  percentage: number
+}
+
 function LiveSession() {
   const { id } = useParams()
   const location = useLocation()
@@ -54,11 +69,14 @@ function LiveSession() {
   const [pollQuestion, setPollQuestion] = useState('')
   const [pollOptions, setPollOptions] = useState(['', ''])
   const [activePollId, setActivePollId] = useState<string | null>(null)
-  const [pollResults, setPollResults] = useState<any>(null)
+  const [pollResults, setPollResults] = useState<PollResult | null>(null)
   
   // Pulse check state
   const [pulseCheckActive, setPulseCheckActive] = useState(false)
-  const [pulseResults, setPulseResults] = useState<any>(null)
+  const [pulseResults, setPulseResults] = useState<PulseResult | null>(null)
+  
+  // End session state
+  const [endingSession, setEndingSession] = useState(false)
   
   const socketConnected = useRef(false)
 
@@ -137,19 +155,19 @@ function LiveSession() {
     }
 
     // Listen for new poll (to get pollId)
-    const handlePollCreated = (data: any) => {
+    const handlePollCreated = (data: { pollId: string }) => {
       console.log('[LiveSession] Poll created:', data)
       setActivePollId(data.pollId)
     }
 
     // Listen for poll results
-    const handlePollResults = (data: any) => {
+    const handlePollResults = (data: PollResult) => {
       console.log('[LiveSession] Poll results received:', data)
       setPollResults(data)
     }
 
     // Listen for pulse check results
-    const handlePulseResult = (data: any) => {
+    const handlePulseResult = (data: PulseResult) => {
       console.log('[LiveSession] Pulse check results received:', data)
       setPulseResults(data)
       setPulseCheckActive(false)
@@ -191,8 +209,8 @@ function LiveSession() {
     if (!id || !token) return
     
     try {
-      const response = await getSessionRequest(id, token)
-      setSession({ ...response.data, studentsJoined: 0 })
+      const session = await getSessionRequest(id, token)
+      setSession({ ...session, studentsJoined: 0 })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
@@ -227,10 +245,6 @@ function LiveSession() {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
-  }
-
-  function handleEndSession() {
-    navigate('/teacher/dashboard')
   }
 
   function goToPrevQuestion() {
@@ -328,6 +342,33 @@ function LiveSession() {
 
     socket.emit('pulse:end', { sessionCode })
     console.log('[LiveSession] Pulse check ended')
+  }
+
+  // End session handler
+  async function handleEndSession() {
+    if (!session?.code) return
+    
+    const confirmEnd = window.confirm('Are you sure you want to end this session? All students will be notified.')
+    if (!confirmEnd) return
+    
+    setEndingSession(true)
+    
+    try {
+      const socket = connectSocket()
+      const sessionCode = session.code
+      
+      // Emit session end event via socket
+      socket.emit('session:end', { sessionCode })
+      
+      console.log('[LiveSession] Session ended')
+      
+      // Navigate to summary page
+      navigate(`/teacher/session/${sessionCode}/summary`)
+    } catch (err) {
+      console.error('Error ending session:', err)
+      alert('Failed to end session. Please try again.')
+      setEndingSession(false)
+    }
   }
 
   const currentQuestion = questions[currentQuestionIndex]
@@ -516,6 +557,22 @@ function LiveSession() {
                     ))}
                   </ul>
                 )}
+                
+                {/* End Session Button */}
+                <button 
+                  className="vi-btn"
+                  onClick={handleEndSession}
+                  disabled={endingSession}
+                  style={{ 
+                    marginTop: '1.5rem', 
+                    width: '100%', 
+                    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                    color: 'white',
+                    border: 'none'
+                  }}
+                >
+                  {endingSession ? 'Ending...' : '🔴 End Session'}
+                </button>
               </div>
             )}
           </div>

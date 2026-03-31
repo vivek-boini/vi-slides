@@ -180,7 +180,21 @@ function Dashboard() {
               recentSessions.map(session => (
                 <div key={session.id} className="vi-card session-card">
                   <div className="session-info">
-                    <h3 className="session-title">{session.title}</h3>
+                    <h3 className="session-title">
+                      {session.title}
+                      {session.status === 'ended' && (
+                        <span style={{ 
+                          marginLeft: '0.5rem', 
+                          fontSize: '0.75rem', 
+                          padding: '0.2rem 0.5rem', 
+                          background: 'var(--bg-secondary)', 
+                          borderRadius: 'var(--radius-sm)',
+                          color: 'var(--text-secondary)'
+                        }}>
+                          Ended
+                        </span>
+                      )}
+                    </h3>
                     <div className="session-meta">
                       <span className="session-code">Code: {session.code}</span>
                       <span className="meta-dot">•</span>
@@ -189,8 +203,13 @@ function Dashboard() {
                       <span>{session.studentsJoined} students</span>
                     </div>
                   </div>
-                  <Link to={`/teacher/session/${session.id}`}>
-                    <button className="vi-btn vi-btn-outline">View</button>
+                  <Link to={session.status === 'ended' 
+                    ? `/teacher/session/${session.code}/summary` 
+                    : `/teacher/session/${session.code}`
+                  }>
+                    <button className="vi-btn vi-btn-outline">
+                      {session.status === 'ended' ? 'Summary' : 'View'}
+                    </button>
                   </Link>
                 </div>
               ))

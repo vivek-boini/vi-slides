@@ -394,6 +394,37 @@ export const initSocket = (server: HttpServer) => {
             // Clear responses after showing results
             pulseCheckResponses.delete(sessionCode);
         });
+
+        // ========== SESSION END FEATURE ==========
+        
+        // Teacher ends the session
+        socket.on('session:end', async ({ sessionCode }) => {
+            console.log(`🔴 Session ending: ${sessionCode}`);
+            
+            try {
+                // Import Session model dynamically to avoid circular dependency
+                const Session = (await import('../models/Session')).default;
+                
+                // Mark session as ended in database
+                const session = await Session.findOneAndUpdate(
+                    { code: sessionCode.toUpperCase() },
+                    { status: 'ended', endedAt: new Date() },
+                    { new: true }
+                );
+                
+                if (session) {
+                    // Broadcast session ended to all users in the room
+                    io.to(sessionCode).emit('session:ended', {
+                        sessionCode,
+                        message: 'Session has been ended by the teacher'
+                    });
+                    console.log(`✅ Session ${sessionCode} ended and all users notified`);
+                }
+            } catch (error) {
+                console.error('Error ending session via socket:', error);
+                socket.emit('session:error', { message: 'Failed to end session' });
+            }
+        });
     });
 
     return io;

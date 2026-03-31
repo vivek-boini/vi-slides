@@ -264,6 +264,84 @@ export const endSession = async (req: Request, res: Response): Promise<void> => 
     }
 };
 
+// @desc    Get session summary (for ended sessions)
+// @route   GET /api/sessions/:code/summary
+// @access  Private
+export const getSessionSummary = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { code } = req.params;
+        
+        const session = await Session.findOne({ code: code.toUpperCase() })
+            .populate('teacher', 'name email');
+        
+        if (!session) {
+            res.status(404).json({ success: false, message: 'Session not found' });
+            return;
+        }
+        
+        // Fetch all questions for this session with user info
+        const questions = await Question.find({ session: session._id })
+            .populate('user', 'name email')
+            .sort({ createdAt: 1 });
+        
+        // Count unique students (exclude teacher)
+        const teacherId = session.teacher._id?.toString() || session.teacher.toString();
+        const uniqueStudentIds = new Set<string>();
+        
+        session.attendance.forEach(record => {
+            const studentId = record.student?.toString();
+            if (studentId && studentId !== teacherId) {
+                uniqueStudentIds.add(studentId);
+            }
+        });
+        
+        // Also count from students array
+        session.students.forEach(studentId => {
+            const id = studentId.toString();
+            if (id !== teacherId) {
+                uniqueStudentIds.add(id);
+            }
+        });
+        
+        const totalStudents = uniqueStudentIds.size;
+        
+        // Format questions for response
+        // After populate, user is an object with name/email, not ObjectId
+        const formattedQuestions = questions.map(q => {
+            const populatedUser = q.user as unknown as { name?: string; email?: string } | undefined;
+            return {
+                _id: q._id,
+                text: q.content,
+                answer: q.teacherAnswer || null,
+                studentName: populatedUser?.name || q.guestName || 'Anonymous',
+                createdAt: q.createdAt
+            };
+        });
+        
+        res.status(200).json({
+            success: true,
+            data: {
+                sessionCode: session.code,
+                title: session.title,
+                description: session.description,
+                status: session.status,
+                totalStudents,
+                totalQuestions: questions.length,
+                questions: formattedQuestions,
+                moodSummary: session.moodSummary,
+                createdAt: session.createdAt,
+                endedAt: session.endedAt
+            }
+        });
+    } catch (error) {
+        console.error('Get session summary error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error fetching session summary'
+        });
+    }
+};
+
 // @desc    Pause or Resume a session
 // @route   PATCH /api/sessions/:id/pause
 // @access  Private (Teacher only)

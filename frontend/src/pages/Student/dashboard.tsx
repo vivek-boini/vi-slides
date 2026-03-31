@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-// import { joinSessionRequest } from "../../lib/api";
+import { joinSessionRequest } from "../../lib/api";
 import Navbar from "../../components/Navbar";
 import WelcomeCard from "../../components/WelcomeCard";
 import "./Student.css";
@@ -43,12 +43,12 @@ const StudentDashboard: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const response = await joinSessionRequest({ code: code.toUpperCase() }, token);
+      const session = await joinSessionRequest(code.toUpperCase(), token);
       
       // Navigate to session with the session code
-      const sessionCode = response.data.code;
+      const sessionCode = session.code;
       navigate(`/student/session/${sessionCode}`, { 
-        state: { session: response.data } 
+        state: { session } 
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid session code");

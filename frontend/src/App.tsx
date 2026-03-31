@@ -7,7 +7,9 @@ import RegisterPage from "./pages/RegisterPage";
 import Dashboard from "./pages/teacher/Dashboard";
 import CreateSession from "./pages/teacher/CreateSession";
 import LiveSession from "./pages/teacher/LiveSession";
+import SessionSummary from "./pages/teacher/SessionSummary";
 import TeacherAssignments from "./pages/teacher/Assignments";
+import TeacherAssignmentDetail from "./pages/teacher/AssignmentDetail";
 // Student pages
 import StudentDashboard from "./pages/Student/dashboard";
 import StudentSession from "./pages/Student/Session";
@@ -40,7 +42,9 @@ function App() {
             <Route path="/teacher/dashboard" element={<Dashboard />} />
             <Route path="/teacher/session/create" element={<CreateSession />} />
             <Route path="/teacher/session/:id" element={<LiveSession />} />
+            <Route path="/teacher/session/:code/summary" element={<SessionSummary />} />
             <Route path="/teacher/assignments" element={<TeacherAssignments />} />
+            <Route path="/teacher/assignment/:id" element={<TeacherAssignmentDetail />} />
           </Route>
         </Route>
 
