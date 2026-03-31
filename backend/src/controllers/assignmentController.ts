@@ -54,11 +54,22 @@ export const getAllAssignments = async (req: Request, res: Response): Promise<vo
                 .populate('teacher', 'name email')
                 .sort({ createdAt: -1 });
         } else {
+            const requestedGroupId = typeof req.query.groupId === 'string'
+                ? req.query.groupId.trim().toUpperCase()
+                : undefined;
+
             // Students see active assignments only for groups they joined.
             const memberships = await AssignmentGroupMembership.find({ student: req.user?._id }).select('groupId');
             const groupIds = memberships.map((membership) => membership.groupId);
 
-            assignments = await Assignment.find({ status: 'active', groupId: { $in: groupIds } })
+            if (requestedGroupId && !groupIds.includes(requestedGroupId)) {
+                res.status(403).json({ success: false, message: 'Join this group to view assignments' });
+                return;
+            }
+
+            const visibleGroupIds = requestedGroupId ? [requestedGroupId] : groupIds;
+
+            assignments = await Assignment.find({ status: 'active', groupId: { $in: visibleGroupIds } })
                 .populate('teacher', 'name email')
                 .sort({ deadline: 1 });
         }
