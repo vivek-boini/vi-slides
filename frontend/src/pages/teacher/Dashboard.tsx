@@ -30,6 +30,11 @@ function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [dashboardData, setDashboardData] = useState<DashboardResponse | null>(null)
 
+  // Set page title
+  useEffect(() => {
+    document.title = 'Teacher Dashboard - Vi-Slides'
+  }, [])
+
   const fetchDashboardMetrics = useCallback(async () => {
     if (!token) return
     try {
@@ -128,7 +133,11 @@ function Dashboard() {
         <div className="section">
           <h2 className="section-title">Quick Actions</h2>
           <div className="actions-grid">
-            <Link to="/teacher/session/create" className="action-link">
+            <Link 
+              to="/teacher/session/create" 
+              className="action-link"
+              onClick={() => console.log('[Dashboard] Navigating to /teacher/session/create')}
+            >
               <div className="vi-card vi-card-orange action-card-large">
                 <img src={joinIcon} alt="create" className="action-card-icon" />
                 <div className="action-card-content">
@@ -138,7 +147,11 @@ function Dashboard() {
                 </div>
               </div>
             </Link>
-            <Link to="/teacher/assignments" className="action-link">
+            <Link 
+              to="/teacher/assignments" 
+              className="action-link"
+              onClick={() => console.log('[Dashboard] Navigating to /teacher/assignments')}
+            >
               <div className="vi-card vi-card-teal action-card-large">
                 <img src={assignmentIcon} alt="assignments" className="action-card-icon" />
                 <div className="action-card-content">

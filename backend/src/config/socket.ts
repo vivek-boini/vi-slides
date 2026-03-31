@@ -7,7 +7,22 @@ import mongoose from 'mongoose';
 let io: SocketServer;
 
 // Map to track socket -> user/session details for disconnect handling
-const socketMap = new Map<string, { userId: string; name: string; email: string; sessionCode: string }>();
+const socketMap = new Map<string, { userId: string; name: string; email: string; sessionCode: string; role?: string }>();
+
+// In-memory storage for polls
+interface Poll {
+    id: string;
+    sessionCode: string;
+    question: string;
+    options: string[];
+    votes: { optionIndex: number; userId: string }[];
+    isActive: boolean;
+}
+
+const polls = new Map<string, Poll>(); // pollId -> Poll
+
+// In-memory storage for pulse check responses
+const pulseCheckResponses = new Map<string, Set<string>>(); // sessionCode -> Set<userId>
 
 export const initSocket = (server: HttpServer) => {
     io = new SocketServer(server, {
@@ -41,36 +56,42 @@ export const initSocket = (server: HttpServer) => {
             // If we have user details, record attendance
             if (user && user._id) {
                 try {
-                    // Update socket map
+                    // Update socket map with role
                     socketMap.set(socket.id, {
                         userId: user._id,
                         name: user.name,
                         email: user.email,
-                        sessionCode
+                        sessionCode,
+                        role: user.role || 'student' // Store role to filter later
                     });
 
-                    // Add attendance record
-                    await Session.findOneAndUpdate(
-                        { code: sessionCode },
-                        {
-                            $push: {
-                                attendance: {
-                                    student: user._id,
-                                    name: user.name,
-                                    email: user.email,
-                                    joinTime: new Date()
+                    // Only record attendance and broadcast for students, not teachers
+                    if (user.role !== 'teacher') {
+                        // Add attendance record
+                        await Session.findOneAndUpdate(
+                            { code: sessionCode },
+                            {
+                                $push: {
+                                    attendance: {
+                                        student: user._id,
+                                        name: user.name,
+                                        email: user.email,
+                                        joinTime: new Date()
+                                    }
                                 }
                             }
-                        }
-                    );
+                        );
 
-                    // Fetch fresh user data (specifically points)
-                    const freshUser = await User.findById(user._id).select('name email points avatar');
+                        // Fetch fresh user data (specifically points)
+                        const freshUser = await User.findById(user._id).select('name email points avatar role');
 
-                    // Broadcast that user joined to update leaderboards
-                    io.to(sessionCode).emit('user_joined', freshUser);
+                        // Broadcast that user joined to update leaderboards (students only)
+                        io.to(sessionCode).emit('user_joined', freshUser);
 
-                    // console.log(`Attendance recorded for ${user.name}`);
+                        // console.log(`Attendance recorded for ${user.name}`);
+                    } else {
+                        console.log(`👨‍🏫 Teacher ${user.name} joined session ${sessionCode} (not counted as student)`);
+                    }
                 } catch (error) {
                     console.error('Error recording attendance:', error);
                 }
@@ -231,6 +252,147 @@ export const initSocket = (server: HttpServer) => {
                 answer,
                 timestamp: Date.now()
             });
+        });
+
+        // ========== POLL FEATURE ==========
+        
+        // Teacher creates a poll
+        socket.on('poll:create', ({ sessionCode, question, options }) => {
+            console.log(`📊 Poll created in session ${sessionCode}`);
+            
+            const pollId = `poll_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const poll: Poll = {
+                id: pollId,
+                sessionCode,
+                question,
+                options,
+                votes: [],
+                isActive: true
+            };
+            
+            polls.set(pollId, poll);
+            
+            // Broadcast poll to all users in the session
+            io.to(sessionCode).emit('poll:new', {
+                pollId,
+                question,
+                options
+            });
+        });
+        
+        // Student votes on a poll
+        socket.on('poll:vote', ({ pollId, optionIndex, userId }) => {
+            console.log(`🗳️  Vote received for poll ${pollId} from user ${userId}`);
+            
+            const poll = polls.get(pollId);
+            if (!poll || !poll.isActive) {
+                socket.emit('poll:error', { message: 'Poll not found or inactive' });
+                return;
+            }
+            
+            // Check if user already voted (prevent duplicate votes)
+            const existingVote = poll.votes.find(v => v.userId === userId);
+            if (existingVote) {
+                console.log(`⚠️  User ${userId} already voted on poll ${pollId}`);
+                socket.emit('poll:error', { message: 'You have already voted' });
+                return;
+            }
+            
+            // Store the vote
+            poll.votes.push({ optionIndex, userId });
+            polls.set(pollId, poll);
+            
+            console.log(`✅ Vote recorded for poll ${pollId} - Total votes: ${poll.votes.length}`);
+            socket.emit('poll:vote-success', { message: 'Vote recorded successfully' });
+        });
+        
+        // Teacher requests poll results
+        socket.on('poll:results', ({ pollId }) => {
+            console.log(`📈 Results requested for poll ${pollId}`);
+            
+            const poll = polls.get(pollId);
+            if (!poll) {
+                socket.emit('poll:error', { message: 'Poll not found' });
+                return;
+            }
+            
+            // Calculate results
+            const results = poll.options.map((option, index) => {
+                const count = poll.votes.filter(v => v.optionIndex === index).length;
+                return {
+                    option,
+                    count,
+                    percentage: poll.votes.length > 0 ? Math.round((count / poll.votes.length) * 100) : 0
+                };
+            });
+            
+            const resultsData = {
+                pollId,
+                question: poll.question,
+                results,
+                totalVotes: poll.votes.length
+            };
+            
+            // Broadcast results to all users in the session
+            io.to(poll.sessionCode).emit('poll:results', resultsData);
+            console.log(`📊 Poll results sent for ${pollId} - ${poll.votes.length} total votes`);
+        });
+
+        // ========== PULSE CHECK FEATURE ==========
+        
+        // Teacher starts pulse check
+        socket.on('pulse:start', ({ sessionCode }) => {
+            console.log(`💓 Pulse check started in session ${sessionCode}`);
+            
+            // Initialize or reset responses for this session
+            pulseCheckResponses.set(sessionCode, new Set());
+            
+            // Broadcast pulse check to all students in the session
+            io.to(sessionCode).emit('pulse:check', { sessionCode });
+        });
+        
+        // Student responds to pulse check
+        socket.on('pulse:response', ({ sessionCode, userId }) => {
+            console.log(`💓 Pulse response from user ${userId} in session ${sessionCode}`);
+            
+            const responses = pulseCheckResponses.get(sessionCode);
+            if (responses) {
+                responses.add(userId);
+                pulseCheckResponses.set(sessionCode, responses);
+                console.log(`✅ Pulse response recorded - ${responses.size} students responded`);
+            }
+        });
+        
+        // Teacher ends pulse check and gets results
+        socket.on('pulse:end', async ({ sessionCode }) => {
+            console.log(`💓 Pulse check ended in session ${sessionCode}`);
+            
+            const responses = pulseCheckResponses.get(sessionCode) || new Set();
+            
+            // Get total students in session from socketMap (exclude teachers)
+            let totalStudents = 0;
+            for (const [, data] of socketMap.entries()) {
+                if (data.sessionCode === sessionCode && data.role !== 'teacher') {
+                    totalStudents++;
+                }
+            }
+            
+            const responded = responses.size;
+            const absent = totalStudents - responded;
+            
+            const result = {
+                total: totalStudents,
+                responded,
+                absent,
+                percentage: totalStudents > 0 ? Math.round((responded / totalStudents) * 100) : 0
+            };
+            
+            // Broadcast results to everyone in the session
+            io.to(sessionCode).emit('pulse:result', result);
+            console.log(`📊 Pulse check results: ${responded}/${totalStudents} students responded`);
+            
+            // Clear responses after showing results
+            pulseCheckResponses.delete(sessionCode);
         });
     });
 

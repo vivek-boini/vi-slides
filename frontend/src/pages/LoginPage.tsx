@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import logo from "../assets/logo.png";
@@ -18,6 +18,11 @@ function LoginPage() {
     const [message, setMessage] = useState("");
     const [forgotMode, setForgotMode] = useState(false);
     const [emailVerified, setEmailVerified] = useState(false);
+
+    // Set page title
+    useEffect(() => {
+        document.title = 'Login - Vi-Slides';
+    }, []);
 
     async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();

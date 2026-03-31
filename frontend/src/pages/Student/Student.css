@@ -467,6 +467,49 @@
   white-space: pre-wrap;
 }
 
+/* ===== Modal Styles ===== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--bg-card);
+  padding: 2rem;
+  border-radius: var(--radius-xl);
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  color: var(--text-primary);
+}
+
+.modal-content h3 {
+  color: var(--text-primary);
+}
+
+.poll-option {
+  transition: all 0.2s ease;
+}
+
+.poll-option:hover {
+  transform: translateX(4px);
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
   .student-dashboard .dashboard-content {

@@ -51,6 +51,8 @@ function App() {
             <Route path="/student/session/:sessionCode" element={<StudentSession />} />
             <Route path="/student/assignments" element={<StudentAssignments />} />
             <Route path="/student/assignments/group" element={<StudentGroupAssignments />} />
+            <Route path="/student/assignments/group/:groupId" element={<StudentGroupAssignments />} />
+            <Route path="/student/assignment/:id" element={<StudentAssignmentDetail />} />
             <Route path="/student/assignments/detail" element={<StudentAssignmentDetail />} />
           </Route>
         </Route>

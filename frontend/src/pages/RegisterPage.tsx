@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import type { UserRole } from "../types/auth";
@@ -16,6 +16,11 @@ function RegisterPage() {
     });
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState("");
+
+    // Set page title
+    useEffect(() => {
+        document.title = 'Register - Vi-Slides';
+    }, []);
 
     async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();

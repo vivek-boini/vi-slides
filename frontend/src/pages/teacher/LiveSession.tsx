@@ -49,7 +49,23 @@ function LiveSession() {
   const [questions, setQuestions] = useState<Question[]>([])
   const [participants, setParticipants] = useState<Participant[]>([])
   
+  // Poll state
+  const [showPollModal, setShowPollModal] = useState(false)
+  const [pollQuestion, setPollQuestion] = useState('')
+  const [pollOptions, setPollOptions] = useState(['', ''])
+  const [activePollId, setActivePollId] = useState<string | null>(null)
+  const [pollResults, setPollResults] = useState<any>(null)
+  
+  // Pulse check state
+  const [pulseCheckActive, setPulseCheckActive] = useState(false)
+  const [pulseResults, setPulseResults] = useState<any>(null)
+  
   const socketConnected = useRef(false)
+
+  // Set page title
+  useEffect(() => {
+    document.title = 'Live Session - Vi-Slides'
+  }, [])
 
   // Fetch session data if not passed via state
   useEffect(() => {
@@ -76,7 +92,7 @@ function LiveSession() {
     // Join the session room as teacher
     socket.emit("join_session", { 
       sessionCode, 
-      user: user ? { _id: user.id, name: user.name, email: user.email } : null 
+      user: user ? { _id: user.id, name: user.name, email: user.email, role: user.role } : null 
     })
     socketConnected.current = true
 
@@ -120,11 +136,33 @@ function LiveSession() {
       ))
     }
 
+    // Listen for new poll (to get pollId)
+    const handlePollCreated = (data: any) => {
+      console.log('[LiveSession] Poll created:', data)
+      setActivePollId(data.pollId)
+    }
+
+    // Listen for poll results
+    const handlePollResults = (data: any) => {
+      console.log('[LiveSession] Poll results received:', data)
+      setPollResults(data)
+    }
+
+    // Listen for pulse check results
+    const handlePulseResult = (data: any) => {
+      console.log('[LiveSession] Pulse check results received:', data)
+      setPulseResults(data)
+      setPulseCheckActive(false)
+    }
+
     socket.on("new_question", handleNewQuestion)
     socket.on("update_question", handleUpdateQuestion)
     socket.on("delete_question", handleDeleteQuestion)
     socket.on("user_joined", handleUserJoined)
     socket.on("new-answer", handleNewAnswer)
+    socket.on("poll:new", handlePollCreated)
+    socket.on("poll:results", handlePollResults)
+    socket.on("pulse:result", handlePulseResult)
 
     // Cleanup on unmount
     return () => {
@@ -133,6 +171,9 @@ function LiveSession() {
       socket.off("delete_question", handleDeleteQuestion)
       socket.off("user_joined", handleUserJoined)
       socket.off("new-answer", handleNewAnswer)
+      socket.off("poll:new", handlePollCreated)
+      socket.off("poll:results", handlePollResults)
+      socket.off("pulse:result", handlePulseResult)
       socket.emit("leave_session", sessionCode)
       disconnectSocket()
       socketConnected.current = false
@@ -220,6 +261,73 @@ function LiveSession() {
     // Clear input and close response box
     setResponseText('')
     setShowResponseBox(false)
+  }
+
+  // Poll handlers
+  function handleCreatePoll() {
+    if (!pollQuestion.trim() || pollOptions.filter(o => o.trim()).length < 2) {
+      alert('Please enter a question and at least 2 options')
+      return
+    }
+
+    const socket = connectSocket()
+    const sessionCode = session?.code || id
+    const validOptions = pollOptions.filter(o => o.trim())
+
+    socket.emit('poll:create', {
+      sessionCode,
+      question: pollQuestion.trim(),
+      options: validOptions
+    })
+
+    // Store poll ID (will be received via poll:new event)
+    console.log('[LiveSession] Poll created')
+    
+    // Reset form and close modal
+    setPollQuestion('')
+    setPollOptions(['', ''])
+    setShowPollModal(false)
+  }
+
+  function handleShowPollResults() {
+    if (!activePollId) {
+      alert('No active poll')
+      return
+    }
+
+    const socket = connectSocket()
+    socket.emit('poll:results', { pollId: activePollId })
+  }
+
+  function handleAddPollOption() {
+    if (pollOptions.length < 4) {
+      setPollOptions([...pollOptions, ''])
+    }
+  }
+
+  function handleRemovePollOption(index: number) {
+    if (pollOptions.length > 2) {
+      setPollOptions(pollOptions.filter((_, i) => i !== index))
+    }
+  }
+
+  // Pulse check handlers
+  function handleStartPulseCheck() {
+    const socket = connectSocket()
+    const sessionCode = session?.code || id
+
+    socket.emit('pulse:start', { sessionCode })
+    setPulseCheckActive(true)
+    setPulseResults(null)
+    console.log('[LiveSession] Pulse check started')
+  }
+
+  function handleEndPulseCheck() {
+    const socket = connectSocket()
+    const sessionCode = session?.code || id
+
+    socket.emit('pulse:end', { sessionCode })
+    console.log('[LiveSession] Pulse check ended')
   }
 
   const currentQuestion = questions[currentQuestionIndex]
@@ -328,23 +436,48 @@ function LiveSession() {
               <div className="sidebar-section">
                 <div className="section-header">Tools</div>
                 <nav className="action-list">
-                  <button className="action-btn">
+                  <button className="action-btn" onClick={() => setShowPollModal(true)}>
                     <span className="action-icon">◧</span>
                     <span>Poll</span>
                   </button>
-                  <button className="action-btn">
+                  <button 
+                    className="action-btn"
+                    onClick={pulseCheckActive ? handleEndPulseCheck : handleStartPulseCheck}
+                  >
                     <span className="action-icon">◉</span>
-                    <span>Pulse Check</span>
+                    <span>{pulseCheckActive ? 'End Pulse' : 'Pulse Check'}</span>
                   </button>
                   <button className="action-btn">
                     <span className="action-icon">▦</span>
                     <span>Whiteboard</span>
                   </button>
-                  <button className="action-btn">
-                    <span className="action-icon">✦</span>
-                    <span>AI Assist</span>
-                  </button>
                 </nav>
+                
+                {/* Poll Results Button */}
+                {activePollId && (
+                  <button 
+                    className="vi-btn vi-btn-secondary"
+                    onClick={handleShowPollResults}
+                    style={{ marginTop: '1rem', width: '100%' }}
+                  >
+                    Show Poll Results
+                  </button>
+                )}
+                
+                {/* Pulse Check Results Display */}
+                {pulseResults && (
+                  <div className="pulse-results" style={{ marginTop: '1rem', padding: '1rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)' }}>
+                    <h4 style={{ margin: '0 0 0.5rem 0' }}>Pulse Check Results</h4>
+                    <div style={{ fontSize: '0.9rem' }}>
+                      <div>✅ Present: {pulseResults.responded}</div>
+                      <div>❌ Absent: {pulseResults.absent}</div>
+                      <div>📊 Total: {pulseResults.total}</div>
+                      <div style={{ marginTop: '0.5rem', fontWeight: 600 }}>
+                        {pulseResults.percentage}% attendance
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -511,6 +644,115 @@ function LiveSession() {
         </main>
       </div>
       </div>
+
+      {/* Poll Creation Modal */}
+      {showPollModal && (
+        <div className="modal-overlay" onClick={() => setShowPollModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Create Poll</h2>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Question:</label>
+              <input
+                type="text"
+                className="vi-input"
+                placeholder="Enter poll question..."
+                value={pollQuestion}
+                onChange={(e) => setPollQuestion(e.target.value)}
+              />
+            </div>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Options:</label>
+              {pollOptions.map((option, index) => (
+                <div key={index} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <input
+                    type="text"
+                    className="vi-input"
+                    placeholder={`Option ${index + 1}`}
+                    value={option}
+                    onChange={(e) => {
+                      const newOptions = [...pollOptions]
+                      newOptions[index] = e.target.value
+                      setPollOptions(newOptions)
+                    }}
+                  />
+                  {pollOptions.length > 2 && (
+                    <button
+                      className="vi-btn vi-btn-outline"
+                      onClick={() => handleRemovePollOption(index)}
+                      style={{ padding: '0.5rem 1rem' }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+              {pollOptions.length < 4 && (
+                <button
+                  className="vi-btn vi-btn-secondary"
+                  onClick={handleAddPollOption}
+                  style={{ marginTop: '0.5rem' }}
+                >
+                  + Add Option
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button
+                className="vi-btn vi-btn-outline"
+                onClick={() => setShowPollModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="vi-btn vi-btn-primary"
+                onClick={handleCreatePoll}
+              >
+                Create Poll
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Poll Results Modal */}
+      {pollResults && (
+        <div className="modal-overlay" onClick={() => setPollResults(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Poll Results</h2>
+            <h3 style={{ marginBottom: '1rem', fontWeight: 'normal' }}>{pollResults.question}</h3>
+            <div style={{ marginBottom: '1rem' }}>
+              {pollResults.results.map((result: any, index: number) => (
+                <div key={index} style={{ marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                    <span>{result.option}</span>
+                    <span style={{ fontWeight: 600 }}>{result.count} votes ({result.percentage}%)</span>
+                  </div>
+                  <div style={{ background: 'var(--bg-secondary)', borderRadius: '4px', height: '8px', overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        background: 'var(--gradient-orange)',
+                        height: '100%',
+                        width: `${result.percentage}%`,
+                        transition: 'width 0.3s ease'
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+              Total Votes: {pollResults.totalVotes}
+            </div>
+            <button
+              className="vi-btn vi-btn-primary"
+              onClick={() => setPollResults(null)}
+              style={{ width: '100%' }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

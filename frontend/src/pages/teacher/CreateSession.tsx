@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Card from '../../components/Card'
 import Button from '../../components/Button'
@@ -14,6 +14,11 @@ function CreateSession() {
   const [description, setDescription] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // Set page title
+  useEffect(() => {
+    document.title = 'Create Session - Vi-Slides'
+  }, [])
 
   const handleCreate = async () => {
     if (!title.trim()) return

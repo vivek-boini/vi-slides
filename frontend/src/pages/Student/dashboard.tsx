@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { joinSessionRequest } from "../../lib/api";
@@ -17,6 +17,11 @@ const StudentDashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { user, token } = useAuth();
+
+  // Set page title
+  useEffect(() => {
+    document.title = 'Student Dashboard - Vi-Slides';
+  }, []);
 
   const handleJoin = async () => {
     if (code.trim().length === 0) {
